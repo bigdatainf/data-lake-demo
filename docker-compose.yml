@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   # MinIO - S3 Compatible Object Storage (Storage Layer)
   minio:
@@ -20,7 +18,7 @@ services:
       timeout: 20s
       retries: 3
 
-  # Create initial buckets in MinIO
+  # Create initial buckets in MinIO - aligned with multi-zone architecture
   mc-init:
     image: minio/mc
     depends_on:
@@ -32,10 +30,12 @@ services:
         echo 'Waiting for MinIO to be ready...'
         sleep 1
       done;
-      /usr/bin/mc mb minio/raw-zone || true;
-      /usr/bin/mc mb minio/trusted-zone || true;
-      /usr/bin/mc mb minio/refined-zone || true;
-      /usr/bin/mc mb minio/consumption-zone || true;
+      /usr/bin/mc mb minio/raw-ingestion-zone || true;
+      /usr/bin/mc mb minio/process-zone || true;
+      /usr/bin/mc mb minio/access-zone || true;
+      /usr/bin/mc mb minio/govern-zone || true;
+      /usr/bin/mc mb minio/govern-zone-metadata || true;
+      /usr/bin/mc mb minio/govern-zone-security || true;
       echo 'MinIO buckets created successfully'
       exit 0;
       "
@@ -52,21 +52,13 @@ services:
       - minio
 
   python-client:
-    image: python:3.9-slim
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: python-client
     volumes:
       - ./scripts:/scripts
       - ./data:/data
-    working_dir: /scripts
-    command: >
-      bash -c "
-      apt-get update && 
-      apt-get install -y procps gcc g++ make curl liblz4-dev &&
-      apt-get clean &&
-      pip install minio pandas pyarrow>=7.0.0 requests trino &&
-      echo 'Python client is ready. Use docker exec -it python-client python /scripts/01_ingest_data.py to run scripts.' &&
-      tail -f /dev/null
-      "
     depends_on:
       - trino
       - minio

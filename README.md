@@ -1,235 +1,200 @@
-# Data Lake Implementation with Docker
+# Multi-Zone Data Lake Architecture Demo
 
-This repository contains a simplified, practical implementation of a Data Lake using Docker containers. It's designed as an educational tool for understanding data lake zones and basic operations.
+This repository demonstrates a comprehensive, Docker-based implementation of a multi-zone data lake architecture. The architecture provides an efficient means for data analytics by enabling users to easily locate, access, interoperate, and reuse existing data, data preparation processes, and analyses.
 
-## Overview
+## Architecture Overview
 
-This Data Lake implementation includes:
+The multi-zone data lake architecture consists of four primary functional zones:
 
-- **MinIO**: S3-compatible object storage as the storage layer
-- **Trino**: SQL query engine for data analysis
-- **Python Client**: Processing tools for data transformation
+![Data Lake Architecture](https://raw.githubusercontent.com/yourusername/datalake-demo/main/docs/images/architecture.png)
 
-The data is organized in zones following standard Data Lake architecture:
-- **Raw Zone**: Original unprocessed data
-- **Trusted Zone**: Cleansed and validated data
-- **Refined Zone**: Transformed and enriched data
-- **Consumption Zone**: Business-ready datasets
+### 1. Raw Ingestion Zone
 
-## Prerequisites
+- **Purpose**: Store data in its native format without modification
+- **Characteristics**: 
+  - Preserves original data fidelity
+  - Maintains historical record of raw data
+  - Supports batch and real-time data ingestion
+  - Often uses formats like CSV, JSON, XML, or binary formats
 
-- Docker and Docker Compose installed
-- At least 2GB of RAM available for Docker
-- Basic knowledge of SQL and Python
+### 2. Process Zone
 
-## Deployment Instructions
+- **Purpose**: Prepare and transform data according to business needs
+- **Characteristics**:
+  - Stores intermediate data and processes
+  - Applies business logic and transformations
+  - Standardizes formats and structures
+  - Often uses Parquet format for better performance
+  - Retains business knowledge applied to raw data
 
-### 1. Clone the Repository
+### 3. Access Zone
 
-```bash
-git clone https://github.com/yourusername/data-lake-demo.git
-cd data-lake-demo
+- **Purpose**: Make processed data accessible and consumable
+- **Characteristics**:
+  - Contains analytics-ready data
+  - Optimized for visualization and analysis
+  - Supports BI tools, dashboards, and ML models
+  - Often structured for specific business domains
+  - Enables self-service analytics
+
+### 4. Govern Zone
+
+- **Purpose**: Ensure data security, quality, lifecycle, and metadata management
+- **Sub-zones**:
+  - **Metadata Storage**: Catalogs data assets, lineage, and quality metrics
+  - **Security Mechanisms**: Implements authentication, authorization, encryption
+- **Characteristics**:
+  - Maintains data quality and governance
+  - Enforces access controls and policies
+  - Tracks data lineage and transformations
+  - Monitors resource consumption
+  - Ensures compliance with regulations
+
+## Technologies Used
+
+This demonstration uses the following technologies:
+
+- **MinIO**: S3-compatible object storage system serving as the data lake storage layer
+- **Trino (formerly PrestoSQL)**: Distributed SQL query engine for data lake analytics
+- **Python**: For data processing, transformation, and analysis
+- **Pandas/PyArrow**: Data manipulation and analysis libraries
+- **Docker & Docker Compose**: Containerization for easy deployment and management
+
+## Directory Structure
+
+```
+data-lake-demo/
+├── docker-compose.yml            # Docker configuration
+├── config/                       # Configuration files
+│   ├── trino/                    # Trino configuration
+│   │   ├── catalog/              # Catalog configurations
+│   │   │   ├── hive.properties
+│   │   │   └── minio.properties
+│   │   ├── config.properties
+│   │   └── jvm.config
+├── data/                         # Local data storage
+│   ├── raw-ingestion-zone/       # Raw data files
+│   ├── process-zone/             # Processed data files
+│   ├── access-zone/              # Analytics-ready data files
+│   └── govern-zone/              # Governance information
+├── scripts/                      # Python scripts for data processing
+│   ├── 01_ingest_data.py         # Raw ingestion zone demo
+│   ├── 02_process_data.py        # Process zone demo
+│   ├── 03_access_zone.py         # Access zone demo
+│   ├── 04_govern_zone.py         # Govern zone demo
+│   ├── 05_query_data.py          # Querying data from the lake
+│   └── utils.py                  # Utility functions
+└── README.md                     # This file
 ```
 
-### 2. Create Directory Structure
+## Data Flow
 
-Create the necessary directories for the deployment:
+The multi-zone architecture facilitates a clear data flow:
 
-```bash
-mkdir -p config/trino/{catalog,} data/{raw-zone,trusted-zone,refined-zone,consumption-zone} scripts
-```
+1. **Data Ingestion**: Raw data is ingested into the raw-ingestion-zone in its original format
+2. **Data Processing**: Raw data is transformed in the process-zone, with business rules applied
+3. **Data Access**: Processed data is prepared for analytics in the access-zone
+4. **Governance**: Metadata, lineage, and security are managed in the govern-zone
 
-### 3. Create Configuration Files
+This approach separates concerns between different data processing stages and enables better scalability, governance, and data management.
 
-#### Trino Configuration
+## Setup and Usage
 
-Create `config/trino/config.properties`:
+### Prerequisites
 
-```properties
-coordinator=true
-node-scheduler.include-coordinator=true
-http-server.http.port=8080
-discovery.uri=http://trino:8080
-```
+- Docker and Docker Compose
+- Internet connection (to pull Docker images)
 
-Create `config/trino/node.properties`:
+### Getting Started
 
-```properties
-node.environment=production
-node.data-dir=/data/trino
-node.id=ffffffff-ffff-ffff-ffff-ffffffffffff
-```
+1. Clone this repository
+   ```
+   git clone https://github.com/yourusername/data-lake-demo.git
+   cd data-lake-demo
+   ```
 
-Create `config/trino/jvm.config`:
+2. Start the containers
+   ```
+   docker-compose up -d
+   ```
 
-```
--server
--Xmx4G
--XX:+UseG1GC
--XX:G1HeapRegionSize=32M
--XX:+UseGCOverheadLimit
--XX:+ExplicitGCInvokesConcurrent
--XX:+HeapDumpOnOutOfMemoryError
--XX:+ExitOnOutOfMemoryError
-```
+3. Run the data ingestion script
+   ```
+   docker exec -it python-client python /scripts/01_ingest_data.py
+   ```
 
-Create `config/trino/catalog/minio.properties`:
+4. Run the data processing script
+   ```
+   docker exec -it python-client python /scripts/02_process_data.py
+   ```
 
-```properties
-connector.name=hive
-hive.s3.endpoint=http://minio:9000
-hive.s3.aws-access-key=minioadmin
-hive.s3.aws-secret-key=minioadmin
-hive.s3.path-style-access=true
-hive.s3.ssl.enabled=false
-hive.non-managed-table-writes-enabled=true
-hive.metastore=file
-hive.metastore.catalog.dir=s3://raw-zone/
-```
+5. Run the access zone preparation script
+   ```
+   docker exec -it python-client python /scripts/03_access_zone.py
+   ```
 
-### 4. Create Python Scripts
+6. Run the governance demo
+   ```
+   docker exec -it python-client python /scripts/04_govern_zone.py
+   ```
 
-Copy the provided Python scripts to the scripts directory:
-- `utils.py`: Common utilities for interacting with MinIO and Trino
-- `01_ingest_data.py`: Data ingestion into raw zone
-- `02_transform_data.py`: Data transformation into trusted zone
-- `03_query_data.py`: Data analysis using pandas
+7. Query the data lake
+   ```
+   docker exec -it python-client python /scripts/05_query_data.py
+   ```
 
-### 5. Create Docker Compose File
+### Accessing the Components
 
-Create `docker-compose.yml` with the content provided.
+- **MinIO Console**: http://localhost:9001 (Username: minioadmin, Password: minioadmin)
+- **Trino UI**: http://localhost:8085 (User: trino)
 
-### 6. Start the Environment
+## Zone Contributions and Examples
 
-Launch the Docker containers:
+### Raw Ingestion Zone Contributions:
 
-```bash
-docker-compose up -d
-```
+- **Data Preservation**: Original data is kept intact for compliance and auditability
+- **Source of Truth**: Serves as the authoritative source for all derived data
+- **Format Variety**: Handles various data formats from different source systems
+- **Example Files**: CSV files containing raw transaction, customer, and product data
 
-Verify that all services are running:
+### Process Zone Contributions:
 
-```bash
-docker-compose ps
-```
+- **Data Standardization**: Cleans and standardizes data fields
+- **Business Logic**: Applies transformations and business rules
+- **Data Enrichment**: Adds calculated fields and derived values
+- **Storage Optimization**: Converts data to Parquet format for better performance
+- **Example Files**: Parquet files with cleaned transaction data, enriched customer data, standardized product data
 
-### 7. Run the Sample Workflow
+### Access Zone Contributions:
 
-Execute the data ingestion script:
+- **Analytics Ready**: Prepares data specifically for analytics and reporting
+- **Business View**: Structures data according to business domains and use cases
+- **Aggregated Datasets**: Pre-calculates common metrics and aggregations
+- **Format Options**: Provides data in formats suitable for different tools
+- **Example Files**: Parquet and CSV files with sales aggregations, customer segments, and product performance metrics
 
-```bash
-docker exec -it python-client python /scripts/01_ingest_data.py
-```
+### Govern Zone Contributions:
 
-Transform the data:
+- **Metadata Tracking**: Catalogs all datasets and their attributes
+- **Data Lineage**: Records how data moves and transforms through the lake
+- **Quality Monitoring**: Tracks and reports on data quality metrics
+- **Security Policies**: Defines and enforces access controls
+- **Example Files**: JSON and YAML files with metadata, lineage information, quality metrics, and security policies
 
-```bash
-docker exec -it python-client python /scripts/02_transform_data.py
-```
+## Benefits of Multi-Zone Architecture
 
-Analyze the data:
+1. **Simplified Data Management**: Clear separation of concerns through different zones
+2. **Enhanced Data Governance**: Comprehensive metadata and lineage tracking
+3. **Optimized Performance**: Right storage formats for different processing stages
+4. **Improved Data Quality**: Validation and quality monitoring throughout the pipeline
+5. **Self-Service Analytics**: Well-organized data that's ready for business users
+6. **Regulatory Compliance**: Preservation of raw data and detailed audit trails
+7. **Reusable Data Assets**: Properly cataloged and documented data for reuse
 
-```bash
-docker exec -it python-client python /scripts/03_query_data.py
-```
+## Contributing
 
-## Exploring the Data Lake
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-### Access MinIO Console
+## License
 
-Open your browser and navigate to:
-- URL: http://localhost:9001
-- Login with: minioadmin / minioadmin
-
-You can explore the different buckets and view the data files.
-
-### Using Trino for SQL Queries
-
-Connect to the Trino CLI:
-
-```bash
-docker exec -it trino trino
-```
-
-Run some example queries:
-
-```sql
--- Show available catalogs
-SHOW CATALOGS;
-
--- Show available schemas
-SHOW SCHEMAS FROM minio;
-
--- Query the data (if you have created a table)
-SELECT * FROM minio.default.your_table LIMIT 10;
-```
-
-## Adding Your Own Data
-
-You can add custom data to the Data Lake using these steps:
-
-1. Prepare your data in CSV format
-2. Use the Python client to ingest it into the raw zone:
-
-```bash
-docker cp your-data.csv python-client:/data/
-docker exec -it python-client python -c "
-from utils import upload_file_to_minio
-upload_file_to_minio('/data/your-data.csv', 'raw-zone', 'custom/your-data.csv')
-"
-```
-
-3. Write a transformation script similar to the example
-4. Analyze the data using pandas or Trino
-
-## Data Lake Architecture Explanation
-
-This simplified implementation demonstrates the key concepts of a Data Lake:
-
-### 1. Zones-based Organization
-
-- **Raw Zone**: Stores original, unmodified data exactly as it was received
-- **Trusted Zone**: Contains validated and cleansed data with consistent formats
-- **Refined Zone**: Holds transformed and enriched data ready for analysis
-- **Consumption Zone**: Provides business-ready datasets tailored for specific use cases
-
-### 2. Schema-on-Read Philosophy
-
-Unlike traditional databases, data lakes follow a "schema-on-read" approach:
-- Data is stored without predefined schema requirements
-- Schema is applied only when the data is read/queried
-- This allows for more flexibility in data storage and usage
-
-### 3. Separation of Storage and Compute
-
-- MinIO provides the storage layer
-- Trino and Python handle the compute layer
-- This separation allows for independent scaling of each layer
-
-## Cleanup
-
-When you're done with the environment:
-
-```bash
-# Stop the containers
-docker-compose down
-
-# Remove volumes (deletes all data)
-docker-compose down -v
-```
-
-## Next Steps and Extensions
-
-After mastering the basic implementation, consider:
-
-1. Adding data quality checks
-2. Creating dimension tables and fact tables
-3. Implementing simple workflow orchestration
-4. Building a visualization layer with tools like Metabase
-5. Adding Hive Metastore for metadata management (optional)
-
-## References
-
-- [MinIO Documentation](https://docs.min.io/)
-- [Trino Documentation](https://trino.io/docs/current/)
-- [Data Lake Design Patterns](https://docs.aws.amazon.com/prescriptive-guidance/latest/defining-data-lake-architecture/welcome.html)
+This project is licensed under the MIT License - see the LICENSE file for details.
