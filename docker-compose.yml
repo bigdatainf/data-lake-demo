@@ -21,69 +21,36 @@ services:
       retries: 3
 
   # Create initial buckets in MinIO
-  mc:
+  mc-init:
     image: minio/mc
     depends_on:
       - minio
+    restart: on-failure
     entrypoint: >
       /bin/sh -c "
-      sleep 10;
-      /usr/bin/mc config host add minio http://minio:9000 minioadmin minioadmin;
-      /usr/bin/mc mb minio/raw-zone;
-      /usr/bin/mc mb minio/trusted-zone;
-      /usr/bin/mc mb minio/refined-zone;
-      /usr/bin/mc mb minio/consumption-zone;
+      until /usr/bin/mc config host add minio http://minio:9000 minioadmin minioadmin; do
+        echo 'Waiting for MinIO to be ready...'
+        sleep 1
+      done;
+      /usr/bin/mc mb minio/raw-zone || true;
+      /usr/bin/mc mb minio/trusted-zone || true;
+      /usr/bin/mc mb minio/refined-zone || true;
+      /usr/bin/mc mb minio/consumption-zone || true;
+      echo 'MinIO buckets created successfully'
       exit 0;
       "
-
-  # Mariadb for Hive Metastore
-  mariadb:
-    image: mariadb:10.6
-    container_name: mariadb
-    environment:
-      MYSQL_ROOT_PASSWORD: admin
-      MYSQL_USER: hive
-      MYSQL_PASSWORD: hive
-      MYSQL_DATABASE: metastore_db
-    volumes:
-      - mariadb_data:/var/lib/mysql
-      - ./init/mariadb/init.sql:/docker-entrypoint-initdb.d/init.sql
-    ports:
-      - "3306:3306"
-
-  # Hive Metastore - Metadata Management
-  hive-metastore:
-    image: apache/hive:3.1.3
-    container_name: hive-metastore
-    depends_on:
-      - mariadb
-    environment:
-      DB_DRIVER: mysql
-      DB_HOST: mariadb
-      DB_NAME: metastore_db
-      DB_USER: hive
-      DB_PASSWORD: hive
-      METASTORE_JDBC_URL: jdbc:mysql://mariadb:3306/metastore_db
-      HADOOP_HOME: /opt/hadoop
-    ports:
-      - "9083:9083"
-    volumes:
-      - ./config/hive/hive-site.xml:/opt/hive/conf/hive-site.xml
-      - ./data:/data
 
   # Trino (formerly PrestoSQL) - SQL Query Engine
   trino:
     image: trinodb/trino:403
     container_name: trino
     ports:
-      - "8080:8080"
+      - "8085:8080"
     volumes:
       - ./config/trino/:/etc/trino/
     depends_on:
-      - hive-metastore
       - minio
 
-  # Python client for interacting with Data Lake
   python-client:
     image: python:3.9-slim
     container_name: python-client
@@ -92,11 +59,17 @@ services:
       - ./data:/data
     working_dir: /scripts
     command: >
-      bash -c "pip install minio pandas pyarrow requests trino && tail -f /dev/null"
+      bash -c "
+      apt-get update && 
+      apt-get install -y procps gcc g++ make curl liblz4-dev &&
+      apt-get clean &&
+      pip install minio pandas pyarrow>=7.0.0 requests trino &&
+      echo 'Python client is ready. Use docker exec -it python-client python /scripts/01_ingest_data.py to run scripts.' &&
+      tail -f /dev/null
+      "
     depends_on:
       - trino
       - minio
 
 volumes:
   minio_data:
-  mariadb_data:

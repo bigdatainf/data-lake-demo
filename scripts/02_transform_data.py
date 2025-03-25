@@ -56,32 +56,7 @@ def main():
         format='parquet'
     )
 
-    # Create Hive table via Trino
-    print("Creating Hive table for the data...")
-    create_table_query = """
-    CREATE TABLE IF NOT EXISTS hive.default.transactions (
-        transaction_id BIGINT,
-        customer_id VARCHAR,
-        transaction_date TIMESTAMP,
-        product_id VARCHAR,
-        amount DOUBLE,
-        payment_method VARCHAR,
-        year INTEGER,
-        month INTEGER,
-        day INTEGER,
-        amount_category VARCHAR
-    )
-    WITH (
-        external_location = 's3a://trusted-zone/transactions/',
-        format = 'PARQUET'
-    )
-    """
-
-    try:
-        execute_trino_query(create_table_query)
-        print("Hive table created successfully")
-    except Exception as e:
-        print(f"Error creating Hive table: {e}")
+    print("Data transformation complete")
 
 if __name__ == "__main__":
     main()

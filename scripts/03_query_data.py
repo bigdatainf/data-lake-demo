@@ -1,69 +1,49 @@
 """
-This script demonstrates querying and analyzing data from the data lake.
-It uses Trino to run SQL queries against the Hive tables.
+This script demonstrates querying the data lake using Python and pandas.
 """
-from utils import execute_trino_query
+from utils import download_dataframe_from_minio
 import pandas as pd
 
 def main():
     # Query 1: Get transaction counts by payment method
-    print("Running Query 1: Transaction counts by payment method")
-    query1 = """
-    SELECT payment_method, COUNT(*) as transaction_count
-    FROM hive.default.transactions
-    GROUP BY payment_method
-    ORDER BY transaction_count DESC
-    """
+    print("Analyzing transaction data by payment method...")
 
     try:
-        result1 = execute_trino_query(query1)
+        # Load data from trusted zone
+        df = download_dataframe_from_minio('trusted-zone', 'transactions/transactions.parquet', format='parquet')
+
+        # Analysis 1: Payment method distribution
+        payment_method_counts = df.groupby('payment_method').size().reset_index(name='transaction_count')
+        payment_method_counts['percentage'] = payment_method_counts['transaction_count'] / len(df) * 100
+
         print("\nTransaction counts by payment method:")
-        print(result1)
-    except Exception as e:
-        print(f"Error executing Query 1: {e}")
+        print(payment_method_counts)
 
-    # Query 2: Transaction statistics by month
-    print("\nRunning Query 2: Monthly transaction statistics")
-    query2 = """
-    SELECT 
-        year, 
-        month, 
-        COUNT(*) as transaction_count,
-        SUM(amount) as total_amount,
-        AVG(amount) as avg_amount,
-        MIN(amount) as min_amount,
-        MAX(amount) as max_amount
-    FROM hive.default.transactions
-    GROUP BY year, month
-    ORDER BY year, month
-    """
+        # Analysis 2: Monthly transaction statistics
+        monthly_stats = df.groupby(['year', 'month']).agg({
+            'transaction_id': 'count',
+            'amount': ['sum', 'mean', 'min', 'max']
+        }).reset_index()
 
-    try:
-        result2 = execute_trino_query(query2)
+        monthly_stats.columns = ['year', 'month', 'transaction_count', 'total_amount', 'avg_amount', 'min_amount', 'max_amount']
+
         print("\nMonthly transaction statistics:")
-        print(result2)
-    except Exception as e:
-        print(f"Error executing Query 2: {e}")
+        print(monthly_stats)
 
-    # Query 3: Top customers by spending
-    print("\nRunning Query 3: Top 10 customers by spending")
-    query3 = """
-    SELECT 
-        customer_id, 
-        COUNT(*) as transaction_count,
-        SUM(amount) as total_spent
-    FROM hive.default.transactions
-    GROUP BY customer_id
-    ORDER BY total_spent DESC
-    LIMIT 10
-    """
+        # Analysis 3: Top customers by spending
+        top_customers = df.groupby('customer_id').agg({
+            'transaction_id': 'count',
+            'amount': 'sum'
+        }).reset_index()
 
-    try:
-        result3 = execute_trino_query(query3)
+        top_customers.columns = ['customer_id', 'transaction_count', 'total_spent']
+        top_customers = top_customers.sort_values('total_spent', ascending=False).head(10)
+
         print("\nTop 10 customers by spending:")
-        print(result3)
+        print(top_customers)
+
     except Exception as e:
-        print(f"Error executing Query 3: {e}")
+        print(f"Error analyzing data: {e}")
 
 if __name__ == "__main__":
     main()

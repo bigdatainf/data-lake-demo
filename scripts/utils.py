@@ -1,3 +1,4 @@
+# File: scripts/utils.py
 from minio import Minio
 import pandas as pd
 import io
@@ -19,7 +20,7 @@ def get_trino_connection():
         host="trino",
         port=8080,
         user="trino",
-        catalog="hive",
+        catalog="minio",
         schema="default",
     )
 
