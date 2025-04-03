@@ -17,6 +17,8 @@ services:
       interval: 30s
       timeout: 20s
       retries: 3
+    networks:
+      - datalake-network
 
   # Create initial buckets in MinIO - aligned with multi-zone architecture
   mc-init:
@@ -39,6 +41,8 @@ services:
       echo 'MinIO buckets created successfully'
       exit 0;
       "
+    networks:
+      - datalake-network
 
   # Trino (formerly PrestoSQL) - SQL Query Engine
   trino:
@@ -50,6 +54,8 @@ services:
       - ./config/trino/:/etc/trino/
     depends_on:
       - minio
+    networks:
+      - datalake-network
 
   python-client:
     build:
@@ -62,6 +68,12 @@ services:
     depends_on:
       - trino
       - minio
+    networks:
+      - datalake-network
 
 volumes:
   minio_data:
+
+networks:
+  datalake-network:
+    external: true
