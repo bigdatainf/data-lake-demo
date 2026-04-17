@@ -22,7 +22,7 @@ services:
 
   # Create initial buckets in MinIO - aligned with multi-zone architecture
   mc-init:
-    image: minio/mc
+    image: minio/mc:RELEASE.2023-03-20T17-17-53Z
     depends_on:
       - minio
     restart: on-failure
